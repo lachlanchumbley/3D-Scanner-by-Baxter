@@ -35,7 +35,8 @@ add_definitions( ${PCL_DEFINITIONS} )
 include_directories( "/usr/include/eigen3" ) # include eigen. Please modify this to the path on your computer
 
 # OpenCV
-find_package( OpenCV 4.0 REQUIRED )
+# find_package( OpenCV 4.0 REQUIRED )
+find_package( OpenCV REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 
 set( THIRD_PARTY_LIBS 
@@ -72,7 +73,6 @@ generate_messages( # dependencies to my message
   DEPENDENCIES
   std_msgs
   geometry_msgs
-  baxter_core_msgs
 )
 
 catkin_package(CATKIN_DEPENDS message_runtime) # declares dependencies for packages that depend on this package.

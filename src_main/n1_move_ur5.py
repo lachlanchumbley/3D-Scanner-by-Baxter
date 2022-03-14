@@ -1,4 +1,45 @@
 #!/usr/bin/env python
+# Imports
+import rospy
+import sys
+# from agile_grasp2.msg import GraspListMsg
+from geometry_msgs.msg import PoseStamped, WrenchStamped, PoseArray, Pose, Twist
+from visualization_msgs.msg import MarkerArray, Marker
+from shape_msgs.msg import SolidPrimitive
+from std_msgs.msg import Header, Float64
+import numpy as np
+import tf
+from tf import TransformListener
+import copy
+from time import sleep
+import roslaunch
+import math
+import pdb
+import cv2
+from cv_bridge import CvBridge
+from sensor_msgs.msg import Image
+import rosbag
+import time, timeit
+import serial
+
+import moveit_commander
+import moveit_msgs.msg
+from moveit_msgs.msg import DisplayTrajectory, MoveGroupActionFeedback, RobotState, RobotTrajectory, CollisionObject
+from sensor_msgs.msg import JointState
+from actionlib_msgs.msg import GoalStatusArray
+from robotiq_2f_gripper_control.msg import _Robotiq2FGripper_robot_output as outputMsg, \
+    _Robotiq2FGripper_robot_input as inputMsg
+from gripper import open_gripper_msg, close_gripper_msg, activate_gripper_msg, reset_gripper_msg
+from util import dist_to_guess, vector3ToNumpy, find_center, dist_two_points, smallestSignedAngleBetween, \
+    calculate_approach, generate_push_pose, find_nearest_corner, floatToMsg, command_gripper, get_robot_state, \
+    lift_up_plan, move_back_plan, add_front_wall, add_right_wall, add_left_wall, add_back_wall, add_roof
+
+from pyquaternion import Quaternion
+
+import pdb
+from enum import Enum
+
+
 # -*- coding: utf-8 -*-
 
 # -- Standard
@@ -54,22 +95,6 @@ def readKinectCameraPose():
     T = T_base_to_arm.dot(T_arm_to_depth)
     return T
 
-# def set_target_joint_angles():
-#     target_joint_angles=[
-#         [1.3456846475601196, -0.8774369955062866, 0.44907286763191223, 2.608534336090088, -1.5892040729522705, 1.0565292835235596, -3.0434179306030273,],
-#         [1.138980746269226, -0.7712088227272034, 0.44370394945144653, 1.9209274053573608, -1.1696603298187256, 1.2390730381011963, -3.0476362705230713,],
-#         [0.9223059415817261, -0.4134078323841095, 0.598252534866333, 0.8318010568618774, -0.9453156590461731, 1.937034249305725, -3.0476362705230713,],
-#         # [0.6688156127929688, -0.3953835368156433, 0.4747670590877533, 0.5986360311508179, -0.7002622485160828, 1.928597331047058, -3.048403263092041,],
-#         [0.5449466705322266, -0.3075631558895111, 0.34936413168907166, 0.39154860377311707, -0.37812626361846924, 1.914791464805603, -3.0476362705230713,],
-#         [0.17679128050804138, -0.4210777282714844, 0.6170437932014465, 0.7574030160903931, -0.39154860377311707, 1.7755827903747559, -2.6714274883270264,],
-#         [-0.57792729139328, -0.5146505832672119, 0.876286506652832, 1.4162477254867554, -0.03298058733344078, 1.330344796180725, -3.0480198860168457,],
-#         [-0.618577778339386, -0.6373690366744995, 0.6181942820549011, 1.650563359260559, 0.302194207906723, 1.0837574005126953, -3.048403263092041,],
-#         [-1.2486603260040283, -0.5836796760559082, 0.893160343170166, 1.9849711656570435, 0.06481068581342697, 0.8179952502250671, -2.9973983764648438,],
-#         [-1.6106798648834229, -0.3593350052833557, 1.055378794670105, 2.2940683364868164, -0.3551165461540222, 0.5480146408081055, -2.9368062019348145,],
-#     ]
-#     target_joint_angles.reverse()
-#     return target_joint_angles
-
 def set_target_joint_angles():
     target_joint_angles=[
         [-1.4545972347259521, 0.40343695878982544, 1.460349678993225, 2.304422616958618, -1.2390730381011963, 1.0768544673919678, -3.0480198860168457]
@@ -116,6 +141,130 @@ def savePoseToFile(pose, ith_goalpose, clear=False):
     g_poses_storage.append(pose)
     return
 
+# --
+# Grasp Class
+class GraspExecutor:
+    # Initialisation
+    def __init__(self):
+        # Initialisation
+        rospy.init_node('push_grasp', anonymous=True)
+
+        self.tf_listener_ = TransformListener()
+        self.launcher = roslaunch.scriptapi.ROSLaunch()
+        self.launcher.start()
+        self.display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path',
+                                                            moveit_msgs.msg.DisplayTrajectory,
+                                                            queue_size=20)
+
+        moveit_commander.roscpp_initialize(sys.argv)
+        self.robot = moveit_commander.RobotCommander()
+        self.scene = moveit_commander.PlanningSceneInterface()
+        self.group_name = "manipulator"
+        self.move_group = moveit_commander.MoveGroupCommander(self.group_name)
+        # Publisher for grasp poses
+        self.pose_publisher = rospy.Publisher("/pose_viz", PoseArray, queue_size=1)
+
+        # Hard-coded joint values
+        # self.view_home_joints = [0.24985386431217194, -0.702608887349264, -2.0076406637774866, -1.7586587111102503, 1.5221580266952515, 0.25777095556259155]
+        self.view_home_joints = [0.07646834850311279, -0.7014802137957972, -2.008395496998922, -1.1388691107379358,
+                                 1.5221940279006958, 0.06542113423347473]
+
+        self.view_home_pose = PoseStamped()
+        self.view_home_pose.header.frame_id = "base_link"
+        self.view_home_pose.pose.position.x = -0.284710
+        self.view_home_pose.pose.position.y = 0.099278
+        self.view_home_pose.pose.position.z = 0.442958
+        self.view_home_pose.pose.orientation.x = 0.243318
+        self.view_home_pose.pose.orientation.y = 0.657002
+        self.view_home_pose.pose.orientation.z = -0.669914
+        self.view_home_pose.pose.orientation.w = 0.245683
+
+        self.move_home_joints = [0.04602504149079323, -2.2392290274249476, -1.0055387655841272, -1.4874489943133753,
+                                 1.6028196811676025, 0.030045202001929283]
+
+        # Set default robot states
+        self.move_home_robot_state = get_robot_state(self.move_home_joints)
+        self.view_home_robot_state = get_robot_state(self.view_home_joints)
+
+        # RGB Image
+        self.rgb_sub = rospy.Subscriber('/realsense/rgb', Image, self.rgb_callback)
+        self.cv_image = []
+        self.image_number = 0
+
+        # Depth Image
+        self.rgb_sub = rospy.Subscriber('/realsense/depth', Image, self.depth_image_callback)
+        self.depth_image = []
+
+    def rgb_callback(self, image):
+        self.rgb_image = image
+        self.cv_image = self.bridge.imgmsg_to_cv2(image, desired_encoding='passthrough')
+        self.image_number += 1
+
+    def depth_image_callback(self, image):
+        self.depth_image = image
+
+    def move_to_position(self, grasp_pose, plan=None, first_move=False):
+        if first_move:
+            run_flag = "d"
+        else:
+            run_flag = "d"
+
+        if not plan:
+            if not first_move:
+                (plan, fraction) = self.move_group.compute_cartesian_path([grasp_pose.pose], 0.01, 0)
+                if fraction != 1:
+                    rospy.logwarn("lol rip: %f", fraction)
+                    run_flag = "n"
+            elif first_move:
+                plan = self.move_group.plan()
+
+
+        while run_flag == "d":
+            display_trajectory = moveit_msgs.msg.DisplayTrajectory()
+            display_trajectory.trajectory_start = self.robot.get_current_state()
+            display_trajectory.trajectory.append(plan)
+            self.display_trajectory_publisher.publish(display_trajectory)
+
+            run_flag = raw_input("Valid Trajectory [y to run]? or display path again [d to display]:")
+
+        if run_flag == "y":
+            self.move_group.execute(plan, wait=True)
+            successful = True
+        else:
+            successful = False
+            rospy.loginfo("Path cancelled")
+
+        self.move_group.stop()
+        self.move_group.clear_pose_targets()
+
+        return successful
+
+    def move_to_joint_position(self, joint_array, plan=None):
+        self.move_group.set_joint_value_target(joint_array)
+        if not plan:
+            plan = self.move_group.plan()
+
+        run_flag = "y"
+
+        while run_flag == "d":
+            display_trajectory = moveit_msgs.msg.DisplayTrajectory()
+            display_trajectory.trajectory_start = self.robot.get_current_state()
+            display_trajectory.trajectory.append(plan)
+            self.display_trajectory_publisher.publish(display_trajectory)
+
+            run_flag = raw_input("Valid Trajectory [y to run]? or display path again [d to display]:")
+
+        if run_flag == "y":
+            self.move_group.execute(plan, wait=True)
+
+        self.move_group.stop()
+        self.move_group.clear_pose_targets()
+
+        return
+
+    
+# --
+
 
 # -- Main
 if __name__ == "__main__":
@@ -139,8 +288,12 @@ if __name__ == "__main__":
     num_goalposes = rospy.get_param("num_goalposes")
 
     # -- Set Baxter
-    my_Baxter = MyBaxter(['left', 'right'][0])
-    my_Baxter.enableBaxter()
+    # my_Baxter = MyBaxter(['left', 'right'][0])
+    # my_Baxter.enableBaxter()
+
+    # -- Set UR5
+    grasper = GraspExecutor()
+    grasper.main()
 
     # -- Set publisher: After Baxter moves to the next goalpose position,
     #   sends the pose to node2 to tell it to take the picture.
@@ -161,7 +314,8 @@ if __name__ == "__main__":
         rospy.sleep(1)
         init_joint_angles = list_target_joint_angles[0]
         rospy.loginfo("\n\nNode 1: Initialization. Move Baxter to init pose: "+str(init_joint_angles))
-        my_Baxter.moveToJointAngles(init_joint_angles, time_cost=3.0)
+        # my_Baxter.moveToJointAngles(init_joint_angles, time_cost=3.0)
+
         rospy.loginfo("Node 1: Baxter reached the initial pose!\n\n")
 
     # -- Move Baxter to all goal positions
@@ -205,3 +359,7 @@ if __name__ == "__main__":
 
     # -- Node stops
     rospy.loginfo("!!!!! Node 1 stops.")
+
+
+
+
