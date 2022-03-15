@@ -3,7 +3,7 @@
 
 import numpy as np
 import copy
-from open3d import *
+import open3d as o3d 
 import time
 import os
 PYTHON_FILE_PATH = os.path.join(os.path.dirname(__file__))+"/"
@@ -26,9 +26,9 @@ def getCloudContents(cloud):
     return np.asarray(cloud.points), np.asarray(cloud.colors)
 
 def formNewCloud(np_points, np_colors):
-    cloud = PointCloud()
-    cloud.points = Vector3dVector(np_points)
-    cloud.colors = Vector3dVector(np_colors)
+    cloud = o3d.geometry.PointCloud()
+    cloud.points = o3d.utility.Vector3dVector(np_points)
+    cloud.colors = o3d.utility.Vector3dVector(np_colors)
     return cloud
 
 def mergeClouds(cloud1, cloud2, radius_downsample=None, T=None):
@@ -282,9 +282,9 @@ class CloudRegister(object):
         self.USE_COLORED_ICP = USE_COLORED_ICP
         
         # init vars
-        self.res_cloud = open3d.PointCloud()
-        self.new_cloud = open3d.PointCloud()
-        self.prev_res_cloud = open3d.PointCloud()
+        self.res_cloud = o3d.geometry.PointCloud()
+        self.new_cloud = o3d.geometry.PointCloud()
+        self.prev_res_cloud = o3d.geometry.PointCloud()
         self.cnt_cloud=0
 
     def addCloud(self, new_cloud):

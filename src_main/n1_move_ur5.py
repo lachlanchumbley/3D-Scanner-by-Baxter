@@ -29,7 +29,6 @@ from sensor_msgs.msg import JointState
 from actionlib_msgs.msg import GoalStatusArray
 from robotiq_2f_gripper_control.msg import _Robotiq2FGripper_robot_output as outputMsg, \
     _Robotiq2FGripper_robot_input as inputMsg
-from gripper import open_gripper_msg, close_gripper_msg, activate_gripper_msg, reset_gripper_msg
 from util import dist_to_guess, vector3ToNumpy, find_center, dist_two_points, smallestSignedAngleBetween, \
     calculate_approach, generate_push_pose, find_nearest_corner, floatToMsg, command_gripper, get_robot_state, \
     lift_up_plan, move_back_plan, add_front_wall, add_right_wall, add_left_wall, add_back_wall, add_roof
@@ -78,6 +77,12 @@ def getCloudSize(open3d_cloud):
 class JointPosPublisher(object):
     def __init__(self, topic_endeffector_pos):
         self.pub = rospy.Publisher(topic_endeffector_pos, T4x4, queue_size=10)
+        # self.pub = rospy.Publisher(topic_endeffector_pos, T4x4, queue_size=10)
+
+        # trans = [0.0102112, -0.0775106,  0.0964884]
+        # rot = [-0.184016, 0.00187002, 0.0291045, 0.98249]
+        # T = self.tf_listener.fromTranslationRotation(trans, rot)
+        # print(T)
 
     def publishPose(self, pose):
         T = pose
@@ -89,27 +94,33 @@ class JointPosPublisher(object):
         self.pub.publish(pose_1x16)
         return
 
-def readKinectCameraPose():
-    T_base_to_arm = my_Baxter.getFramePose('/left_lower_forearm')
-    T_arm_to_depth  # This is read from file
-    T = T_base_to_arm.dot(T_arm_to_depth)
+# def readKinectCameraPose():
+#     T_base_to_arm = my_Baxter.getFramePose('/left_lower_forearm')
+#     T_arm_to_depth  # This is read from file
+#     T = T_base_to_arm.dot(T_arm_to_depth)
+#     return T
+
+def readRealsenseCameraPose():
+    # Listen to tf
+    tf_listener.waitForTransform("/camera_link", "/base_link", rospy.Time(), rospy.Duration(4))
+    (trans, rot) = tf_listener.lookupTransform('/base_link', '/camera_link', rospy.Time(0))
+    T = tf_listener.fromTranslationRotation(trans, rot)
     return T
 
 def set_target_joint_angles():
     target_joint_angles=[
-        [-1.4545972347259521, 0.40343695878982544, 1.460349678993225, 2.304422616958618, -1.2390730381011963, 1.0768544673919678, -3.0480198860168457]
-        ,[-0.849825382232666, -0.35895150899887085, 1.144733190536499, 1.5957235097885132, -0.32597091794013977, 1.2973642349243164, -3.0480198860168457]
-        # ,[-0.849825382232666, -0.35895150899887085, 1.144733190536499, 1.5957235097885132, -0.32597091794013977, 1.2973642349243164, -3.0480198860168457]
-        ,[-0.5173349976539612, -0.5058301687240601, 0.9146360158920288, 1.584985613822937, -0.08973787724971771, 1.1888351440429688, -3.0480198860168457]
-        ,[0.06404370069503784, -0.49854376912117004, 0.7117670774459839, 1.1489516496658325, -0.2105388641357422, 1.5604419708251953, -3.0468692779541016]
-        ,[0.6830049753189087, -0.358568012714386, 0.10277671366930008, 0.6925923228263855, -0.060208745300769806, 1.9170924425125122, -3.0480198860168457]
-        ,[0.8114758133888245, -0.520786464214325, 0.41072335839271545, 0.8248981833457947, -0.3497476279735565, 1.8860293626785278, -3.0480198860168457]
-        ,[1.0270001888275146, -0.7516505718231201, 0.6688156127929688, 1.6904468536376953, -0.8095583319664001, 1.4799079895019531, -3.0476362705230713]
-        ,[0.8563447594642639, -0.8893253803253174, 1.0243157148361206, 1.940102219581604, -0.7616214752197266, 1.4526797533035278, -3.047252893447876]
-        ,[1.2160632610321045, -0.4141748249530792, 1.0515438318252563, 2.356194496154785, -1.3150050640106201, 1.7598594427108765, -3.0468692779541016]
-        # ,[0.7405292391777039, -0.962956428527832, 1.0948787927627563, 2.177485704421997, 2.173267364501953, -1.5439516305923462, -3.0480198860168457]
-        # ,[1.260932207107544, -0.9418641924858093, 1.0753204822540283, 2.452451705932617, 2.1418206691741943, -1.5136555433273315, -3.023859739303589]
+    [-1.6646230856524866, -0.29163867632021123, 0.07061217725276947, -1.9139745871173304, 1.600701093673706, -0.0441821257220667]
+    [-2.0639851729022425, -0.8451650778399866, -0.8805802504168909, -1.5810025374041956, 2.2264199256896973, -0.023767773305074513]
+    [-1.3436005751239222, -1.6238592306720179, -0.5446856657611292, -1.936120335255758, 1.9973962306976318, -0.023576084767476857]
+    [-1.0498798529254358, -1.8121359984027308, -0.27595216432680303, -2.1475256125079554, 1.8328351974487305, -0.02369577089418584]
+    [-0.732833210621969, -1.923241917287008, 0.08777359127998352, -2.3586061636554163, 1.6853671073913574, -0.023492161427633107]
+    [-0.9190285841571253, -1.8756073156939905, 0.47369709610939026, -2.325972382222311, 1.5827951431274414, -0.03040486971010381]
+    [-1.1725323835956019, -1.6868918577777308, 0.6731565594673157, -2.2223241964923304, 1.4596389532089233, 0.17617036402225494]
+    [-1.590496842061178, -1.249017063771383, 1.0090272426605225, -2.113292996083395, 1.2705281972885132, 0.1747685819864273]
+    [-1.7954867521869105, -1.0215514341937464, 1.1530221700668335, -2.0860732237445276, 1.2926769256591797, 0.17481651902198792]
+    [-1.5441902319537562, -0.7676246801959437, 0.1879156529903412, -1.9610946814166468, 1.6043753623962402, 0.17708078026771545]
    ]
+
     return target_joint_angles
 
 
@@ -152,9 +163,7 @@ class GraspExecutor:
         self.tf_listener_ = TransformListener()
         self.launcher = roslaunch.scriptapi.ROSLaunch()
         self.launcher.start()
-        self.display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path',
-                                                            moveit_msgs.msg.DisplayTrajectory,
-                                                            queue_size=20)
+        self.display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path', moveit_msgs.msg.DisplayTrajectory, queue_size=20)
 
         moveit_commander.roscpp_initialize(sys.argv)
         self.robot = moveit_commander.RobotCommander()
@@ -261,8 +270,7 @@ class GraspExecutor:
         self.move_group.clear_pose_targets()
 
         return
-
-    
+ 
 # --
 
 
@@ -272,6 +280,9 @@ if __name__ == "__main__":
     # ---------------------------------------------------------------------
 
     rospy.init_node('Node 1')
+
+    # Initialise tf listener
+    tf_listener = TransformListener()
 
     # -- Set Params
 
@@ -292,8 +303,8 @@ if __name__ == "__main__":
     # my_Baxter.enableBaxter()
 
     # -- Set UR5
-    grasper = GraspExecutor()
-    grasper.main()
+    # grasper = GraspExecutor()
+    # grasper.main()
 
     # -- Set publisher: After Baxter moves to the next goalpose position,
     #   sends the pose to node2 to tell it to take the picture.
@@ -332,7 +343,7 @@ if __name__ == "__main__":
             rospy.loginfo("Node 1: {}th pos".format(ith_goalpose))
             rospy.loginfo("Node 1: Baxter is moving to pos: "+str(joint_angles))
 
-            my_Baxter.moveToJointAngles(joint_angles, 4.0)
+            # my_Baxter.moveToJointAngles(joint_angles, 4.0)
             
             # if ith_goalpose<=8:
             # elif ith_goalpose==9:
@@ -348,7 +359,7 @@ if __name__ == "__main__":
                       "th camera pose to node2")
 
         # Publish camera pose to node2
-        pose = readKinectCameraPose()
+        pose = readRealsenseCameraPose()
         pub.publishPose(pose)
         
         # End

@@ -34,7 +34,7 @@ from cv_bridge import CvBridge, CvBridgeError
 sys.path.append(PYTHON_FILE_PATH + "../../src_python")
 from lib_geo_trans_ros import form_T, quaternion_to_R, toRosPose, pose2T
 from lib_cam_calib import *
-from lib_baxter import MyBaxter
+# from lib_baxter import MyBaxter
 from lib_keyboard_input import *
 
 getStrBeforeLastChar = lambda s, c: s[:(-s[::-1].find(c))]
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     else:
         topic_cam_color = rospy.get_param("~topic_baxter_left_hand_camera")
         topic_cam_depth = rospy.get_param("~topic_rgbd_camera")
-        my_baxter = MyBaxter("left", turn_on_traj_action_server=False)
+        # my_baxter = MyBaxter("left", turn_on_traj_action_server=False)
         THE_FRAME_DEPTHCAM_CONNECTED_TO = rospy.get_param("~the_frame_depth_camera_connected_to")
         SLEEP_TIME = 1000
 

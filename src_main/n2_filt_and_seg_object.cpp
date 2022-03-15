@@ -112,7 +112,7 @@ void main_loop(ros::Publisher &pub_to_node3, ros::Publisher &pub_to_rviz)
             buff_cloud_src.pop();
 
             // Process cloud
-            process_to_get_cloud_rotated();
+            process_to_get_cloud_rotated();d
             process_to_get_cloud_segmented();
 
             // print

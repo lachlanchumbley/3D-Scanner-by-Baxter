@@ -11,8 +11,10 @@
         <!-- <param name="DEBUG_MODE" value="true" />      -->
         
         <!-- Input image topics -->
-        <param name="topic_baxter_left_hand_camera" value="/cameras/left_hand_camera/image" />     
-        <param name="topic_rgbd_camera" value="/camera/color/image_raw" />     
+        <param name="topic_baxter_left_hand_camera" value="/realsense/depth" />     
+        <param name="topic_rgbd_camera" value="/realsense/rgb" />
+        <!-- <param name="topic_baxter_left_hand_camera" value="/cameras/left_hand_camera/image" />     
+        <param name="topic_rgbd_camera" value="/camera/color/image_raw" />      -->
         <!-- WARNING: Baxter's camera info is for its 1280x800 size image. If image resized, info won't changed, which is wrong! S**t!
             So if you resize the image, you need to manually input the camera info.
             Here I simply use the default camera size, which is 1280x800:
