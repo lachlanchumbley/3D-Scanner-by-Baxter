@@ -79,11 +79,6 @@ class JointPosPublisher(object):
         self.pub = rospy.Publisher(topic_endeffector_pos, T4x4, queue_size=10)
         # self.pub = rospy.Publisher(topic_endeffector_pos, T4x4, queue_size=10)
 
-        # trans = [0.0102112, -0.0775106,  0.0964884]
-        # rot = [-0.184016, 0.00187002, 0.0291045, 0.98249]
-        # T = self.tf_listener.fromTranslationRotation(trans, rot)
-        # print(T)
-
     def publishPose(self, pose):
         T = pose
         # Trans to 1x16 array
@@ -109,16 +104,26 @@ def readRealsenseCameraPose():
 
 def set_target_joint_angles():
     target_joint_angles=[
-    [-1.6646230856524866, -0.29163867632021123, 0.07061217725276947, -1.9139745871173304, 1.600701093673706, -0.0441821257220667]
-    [-2.0639851729022425, -0.8451650778399866, -0.8805802504168909, -1.5810025374041956, 2.2264199256896973, -0.023767773305074513]
-    [-1.3436005751239222, -1.6238592306720179, -0.5446856657611292, -1.936120335255758, 1.9973962306976318, -0.023576084767476857]
-    [-1.0498798529254358, -1.8121359984027308, -0.27595216432680303, -2.1475256125079554, 1.8328351974487305, -0.02369577089418584]
-    [-0.732833210621969, -1.923241917287008, 0.08777359127998352, -2.3586061636554163, 1.6853671073913574, -0.023492161427633107]
-    [-0.9190285841571253, -1.8756073156939905, 0.47369709610939026, -2.325972382222311, 1.5827951431274414, -0.03040486971010381]
-    [-1.1725323835956019, -1.6868918577777308, 0.6731565594673157, -2.2223241964923304, 1.4596389532089233, 0.17617036402225494]
-    [-1.590496842061178, -1.249017063771383, 1.0090272426605225, -2.113292996083395, 1.2705281972885132, 0.1747685819864273]
-    [-1.7954867521869105, -1.0215514341937464, 1.1530221700668335, -2.0860732237445276, 1.2926769256591797, 0.17481651902198792]
-    [-1.5441902319537562, -0.7676246801959437, 0.1879156529903412, -1.9610946814166468, 1.6043753623962402, 0.17708078026771545]
+        # [-1.6646230856524866, -0.29163867632021123, 0.07061217725276947, -1.9139745871173304, 1.600701093673706, -0.0441821257220667],
+        [0.07061217725276947, -0.29163867632021123, -1.6646230856524866, -1.9139745871173304, 1.600701093673706, -0.0441821257220667],
+        # [-2.0639851729022425, -0.8451650778399866, -0.8805802504168909, -1.5810025374041956, 2.2264199256896973, -0.023767773305074513],
+        [-0.8805802504168909, -0.8451650778399866, -2.0639851729022425, -1.5810025374041956, 2.2264199256896973, -0.023767773305074513],
+        # [-1.3436005751239222, -1.6238592306720179, -0.5446856657611292, -1.936120335255758, 1.9973962306976318, -0.023576084767476857],
+        [-0.5446856657611292, -1.6238592306720179, -1.3436005751239222, -1.936120335255758, 1.9973962306976318, -0.023576084767476857],
+        # [-1.0498798529254358, -1.8121359984027308, -0.27595216432680303, -2.1475256125079554, 1.8328351974487305, -0.02369577089418584],
+        [-0.27595216432680303, -1.8121359984027308, -1.0498798529254358, -2.1475256125079554, 1.8328351974487305, -0.02369577089418584],
+        # [-0.732833210621969, -1.923241917287008, 0.08777359127998352, -2.3586061636554163, 1.6853671073913574, -0.023492161427633107],
+        [0.08777359127998352, -1.923241917287008, -0.732833210621969, -2.3586061636554163, 1.6853671073913574, -0.023492161427633107],
+        # [-0.9190285841571253, -1.8756073156939905, 0.47369709610939026, -2.325972382222311, 1.5827951431274414, -0.03040486971010381],
+        [0.47369709610939026, -1.8756073156939905, -0.9190285841571253, -2.325972382222311, 1.5827951431274414, -0.03040486971010381],
+        # [-1.1725323835956019, -1.6868918577777308, 0.6731565594673157, -2.2223241964923304, 1.4596389532089233, 0.17617036402225494],
+        [0.6731565594673157, -1.6868918577777308, -1.1725323835956019, -2.2223241964923304, 1.4596389532089233, 0.17617036402225494],
+        # [-1.590496842061178, -1.249017063771383, 1.0090272426605225, -2.113292996083395, 1.2705281972885132, 0.1747685819864273],
+        [1.0090272426605225, -1.249017063771383, -1.590496842061178, -2.113292996083395, 1.2705281972885132, 0.1747685819864273],
+        # [-1.7954867521869105, -1.0215514341937464, 1.1530221700668335, -2.0860732237445276, 1.2926769256591797, 0.17481651902198792],
+        [1.1530221700668335, -1.0215514341937464, -1.7954867521869105, -2.0860732237445276, 1.2926769256591797, 0.17481651902198792],
+        # [-1.5441902319537562, -0.7676246801959437, 0.1879156529903412, -1.9610946814166468, 1.6043753623962402, 0.17708078026771545]
+        [0.1879156529903412, -0.7676246801959437, -1.5441902319537562, -1.9610946814166468, 1.6043753623962402, 0.17708078026771545]
    ]
 
     return target_joint_angles
@@ -158,9 +163,9 @@ class GraspExecutor:
     # Initialisation
     def __init__(self):
         # Initialisation
-        rospy.init_node('push_grasp', anonymous=True)
+        # rospy.init_node('push_grasp', anonymous=True)
 
-        self.tf_listener_ = TransformListener()
+        # self.tf_listener_ = TransformListener()
         self.launcher = roslaunch.scriptapi.ROSLaunch()
         self.launcher.start()
         self.display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path', moveit_msgs.msg.DisplayTrajectory, queue_size=20)
@@ -170,14 +175,12 @@ class GraspExecutor:
         self.scene = moveit_commander.PlanningSceneInterface()
         self.group_name = "manipulator"
         self.move_group = moveit_commander.MoveGroupCommander(self.group_name)
-        # Publisher for grasp poses
-        self.pose_publisher = rospy.Publisher("/pose_viz", PoseArray, queue_size=1)
 
         # Hard-coded joint values
-        # self.view_home_joints = [0.24985386431217194, -0.702608887349264, -2.0076406637774866, -1.7586587111102503, 1.5221580266952515, 0.25777095556259155]
-        self.view_home_joints = [0.07646834850311279, -0.7014802137957972, -2.008395496998922, -1.1388691107379358,
-                                 1.5221940279006958, 0.06542113423347473]
+        self.view_home_joints = [0.07646834850311279, -0.7014802137957972, -2.008395496998922, -1.1388691107379358, 1.5221940279006958, 0.06542113423347473]
+        self.move_home_joints = [0.04602504149079323, -2.2392290274249476, -1.0055387655841272, -1.4874489943133753, 1.6028196811676025, 0.030045202001929283]
 
+        # View home pose
         self.view_home_pose = PoseStamped()
         self.view_home_pose.header.frame_id = "base_link"
         self.view_home_pose.pose.position.x = -0.284710
@@ -188,29 +191,9 @@ class GraspExecutor:
         self.view_home_pose.pose.orientation.z = -0.669914
         self.view_home_pose.pose.orientation.w = 0.245683
 
-        self.move_home_joints = [0.04602504149079323, -2.2392290274249476, -1.0055387655841272, -1.4874489943133753,
-                                 1.6028196811676025, 0.030045202001929283]
-
         # Set default robot states
         self.move_home_robot_state = get_robot_state(self.move_home_joints)
         self.view_home_robot_state = get_robot_state(self.view_home_joints)
-
-        # RGB Image
-        self.rgb_sub = rospy.Subscriber('/realsense/rgb', Image, self.rgb_callback)
-        self.cv_image = []
-        self.image_number = 0
-
-        # Depth Image
-        self.rgb_sub = rospy.Subscriber('/realsense/depth', Image, self.depth_image_callback)
-        self.depth_image = []
-
-    def rgb_callback(self, image):
-        self.rgb_image = image
-        self.cv_image = self.bridge.imgmsg_to_cv2(image, desired_encoding='passthrough')
-        self.image_number += 1
-
-    def depth_image_callback(self, image):
-        self.depth_image = image
 
     def move_to_position(self, grasp_pose, plan=None, first_move=False):
         if first_move:
@@ -303,8 +286,7 @@ if __name__ == "__main__":
     # my_Baxter.enableBaxter()
 
     # -- Set UR5
-    # grasper = GraspExecutor()
-    # grasper.main()
+    ur5 = GraspExecutor()
 
     # -- Set publisher: After Baxter moves to the next goalpose position,
     #   sends the pose to node2 to tell it to take the picture.
@@ -326,6 +308,8 @@ if __name__ == "__main__":
         init_joint_angles = list_target_joint_angles[0]
         rospy.loginfo("\n\nNode 1: Initialization. Move Baxter to init pose: "+str(init_joint_angles))
         # my_Baxter.moveToJointAngles(init_joint_angles, time_cost=3.0)
+        ur5.move_to_joint_position(init_joint_angles)
+        rospy.sleep(3)
 
         rospy.loginfo("Node 1: Baxter reached the initial pose!\n\n")
 
@@ -344,12 +328,8 @@ if __name__ == "__main__":
             rospy.loginfo("Node 1: Baxter is moving to pos: "+str(joint_angles))
 
             # my_Baxter.moveToJointAngles(joint_angles, 4.0)
-            
-            # if ith_goalpose<=8:
-            # elif ith_goalpose==9:
-                # my_Baxter.moveToJointAngles(joint_angles, 8.0)
-            # else:
-                # my_Baxter.moveToJointAngles(joint_angles, 3.0)
+            ur5.move_to_joint_position(joint_angles)
+            rospy.sleep(4)
 
             rospy.loginfo("Node 1: Baxter reached the pose!")
 

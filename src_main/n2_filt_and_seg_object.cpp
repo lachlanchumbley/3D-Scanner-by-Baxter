@@ -92,7 +92,7 @@ void pubPclCloudToTopic(ros::Publisher &pub, PointCloud<PointXYZRGB>::Ptr pcl_cl
 
 // -- Main processing functions
 void process_to_get_cloud_rotated();
-void process_to_get_cloud_segmented();
+// void process_to_get_cloud_segmented();
 void print_cloud_processing_result(int cnt_cloud);
 
 // -- Main Loop:
@@ -112,8 +112,12 @@ void main_loop(ros::Publisher &pub_to_node3, ros::Publisher &pub_to_rviz)
             buff_cloud_src.pop();
 
             // Process cloud
-            process_to_get_cloud_rotated();d
-            process_to_get_cloud_segmented();
+            process_to_get_cloud_rotated();
+            copyPointCloud(*cloud_rotated, *cloud_segmented);
+            for (PointXYZRGB &p : cloud_segmented->points)
+                my_basics::preTranslatePoint(T_chess_to_baxter, p.x, p.y, p.z);
+            ROS_INFO("SWAP");
+            // process_to_get_cloud_segmented();
 
             // print
             print_cloud_processing_result(cnt_cloud); // Print info

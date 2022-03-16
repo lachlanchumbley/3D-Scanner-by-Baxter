@@ -129,6 +129,7 @@
     <node type="rviz" name="rviz_depth_image" pkg="rviz"
        args="-d $(find scan3d_by_baxter)/config/rviz_depth_image.rviz" respawn="true"/>  -->
 
-    <node type="rviz" name="rviz1" pkg="rviz" respawn="true"/> 
+    <node type="rviz" name="grasp_scene" pkg="rviz"
+       args="-d $(find scan3d_by_baxter)/config/grasp_scene.rviz" respawn="true"/>
    
 </launch>

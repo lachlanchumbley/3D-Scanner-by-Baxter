@@ -45,7 +45,7 @@ def mergeClouds(cloud1, cloud2, radius_downsample=None, T=None):
 
     result = formNewCloud(out_points, out_colors)
     if radius_downsample is not None:
-        result = voxel_down_sample(result, radius_downsample)
+        result = result.voxel_down_sample(radius_downsample)
     return result
 
 def resizeCloudXYZ(cloud, scale=1.0):
@@ -134,17 +134,15 @@ def filtCloud(cloud, criteria):
 def computeFeaturesForGlobalRegistration(pcd, voxel_size):
     # http://www.open3d.org/docs/tutorial/Advanced/global_registration.html#global-registration
     # print(":: Downsample with a voxel size %.3f." % voxel_size)
-    pcd_down = voxel_down_sample(pcd, voxel_size)
+    pcd_down = pcd.voxel_down_sample(voxel_size)
 
     radius_normal = voxel_size * 2
     # print(":: Estimate normal with search radius %.3f." % radius_normal)
-    estimate_normals(pcd_down, KDTreeSearchParamHybrid(
-            radius = radius_normal, max_nn = 30))
+    pcd_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius = radius_normal, max_nn = 30))
 
     radius_feature = voxel_size * 5
     # print(":: Compute FPFH feature with search radius %.3f." % radius_feature)
-    pcd_fpfh = compute_fpfh_feature(pcd_down,
-            KDTreeSearchParamHybrid(radius = radius_feature, max_nn = 100))
+    pcd_fpfh = compute_fpfh_feature(pcd_down, o3d.geometry.KDTreeSearchParamHybrid(radius = radius_feature, max_nn = 100))
     return pcd_down, pcd_fpfh
 
 def execute_global_registration(
@@ -157,7 +155,7 @@ def execute_global_registration(
     result = registration_ransac_based_on_feature_matching(
             source_down, target_down, source_fpfh, target_fpfh,
             distance_threshold,
-            TransformationEstimationPointToPoint(False), 4,
+            o3d.registration.TransformationEstimationPointToPoint(False), 4,
             [CorrespondenceCheckerBasedOnEdgeLength(0.9),
             CorrespondenceCheckerBasedOnDistance(distance_threshold)],
             RANSACConvergenceCriteria(4000000, 500))
@@ -207,21 +205,19 @@ def registerClouds_Local(src, target, voxel_size=0.01, current_T=None,
     # -- Point to plane ICP
     if ICP:
         print("Running ICP ...")
-        src_down = voxel_down_sample(src, voxel_size)
-        target_down = voxel_down_sample(target, voxel_size)
-        estimate_normals(src_down, KDTreeSearchParamHybrid(
-                radius=voxel_size * 2, max_nn=30))
-        estimate_normals(target_down, KDTreeSearchParamHybrid(
-                radius=voxel_size * 2, max_nn=30))
+        src_down = src.voxel_down_sample(voxel_size)
+        target_down = target.voxel_down_sample(voxel_size)
+        src_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=voxel_size * 2, max_nn=30))
+        target_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=voxel_size * 2, max_nn=30))
         
         if ICP_OPTION == "PointToPlane": # or "PointToPoint"
-            result_trans = registration_icp(src_down, target_down, ICP_distance_threshold,
+            result_trans = o3d.registration.registration_icp(src_down, target_down, ICP_distance_threshold,
                 current_T, 
                 TransformationEstimationPointToPlane())
         else:
-            result_trans = registration_icp(src_down, target_down, ICP_distance_threshold, 
+            result_trans = o3d.registration.registration_icp(src_down, target_down, ICP_distance_threshold, 
                 current_T,
-                TransformationEstimationPointToPoint())
+                o3d.registration.TransformationEstimationPointToPoint())
             
         current_T = result_trans.transformation
         if DRAW_ICP:
@@ -241,17 +237,15 @@ def registerClouds_Local(src, target, voxel_size=0.01, current_T=None,
             print " radius {:.4f}...".format(radius),
     
             # Downsample
-            src_down = voxel_down_sample(src, radius)
-            target_down = voxel_down_sample(target, radius)
+            src_down = src.voxel_down_sample(radius)
+            target_down = target.voxel_down_sample(radius)
     
             # Estimate normal
-            estimate_normals(src_down, KDTreeSearchParamHybrid(
-                radius=radius * 2, max_nn=30))
-            estimate_normals(target_down, KDTreeSearchParamHybrid(
-                radius=radius * 2, max_nn=30))
+            src_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30))
+            target_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30))
     
             # Applying colored point cloud registration
-            result_trans = registration_colored_icp(src_down, target_down,
+            result_trans = o3d.registration.registration_colored_icp(src_down, target_down,
                   radius, current_T,
                   ICPConvergenceCriteria(relative_fitness=1e-5,
                  relative_rmse=1e-5, max_iteration=max_iter))

@@ -3,7 +3,7 @@
 
 # Include common
 import numpy as np
-import open3d
+import open3d as o3d
 import sys, os, copy
 from collections import deque
 PYTHON_FILE_PATH = os.path.join(os.path.dirname(__file__))+"/"
@@ -26,8 +26,8 @@ OBJECT_RANGE = 0.12 #The object is inside a region of x=(-r,r) && y=(-r,r)
 # ---------------------------- Two viewers (choose one) ----------------------------
 class Open3DViewer(object):
     def __init__(self):
-        self.vis_cloud = open3d.PointCloud()
-        self.viewer = open3d.Visualizer()
+        self.vis_cloud = o3d.geometryPointCloud()
+        self.viewer = o3d.visualization.Visualizer()
         self.viewer.create_window()
         self.viewer.add_geometry(self.vis_cloud)
 
@@ -82,7 +82,7 @@ class SubscriberOfCloud(object):
         if 1:
             rospy.sleep(2.0)
             filename=file_folder+file_name_cloud_segmented+"{:02d}".format(cnt+1)+".pcd"
-            open3d_cloud = open3d.read_point_cloud(filename)
+            open3d_cloud = o3d.io.read_point_cloud(filename)
         else: # Here has a bug. The received cloud is very sparse when running the ROS server on Baxter.
                 # The bug disapears when running the ROS server on my laptop (by using my fake node1 to debug).
                 # So the conclusion is that I still don't know what the bug is.
@@ -144,9 +144,8 @@ if __name__ == "__main__":
                 continue
             
             # Filter
-            cl,ind = open3d.statistical_outlier_removal(new_cloud, # Statistical oulier removal
-                nb_neighbors=20, std_ratio=2.0)
-            new_cloud = open3d.select_down_sample(new_cloud, ind)
+            cl,ind = new_cloud.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
+            new_cloud = new_cloud.select_down_sample(ind)
             
             # Regi
             res_cloud = cloud_register.addCloud(new_cloud)
@@ -162,14 +161,14 @@ if __name__ == "__main__":
                 
                 # Filter by range to remove things around our target
                 res_cloud = filtCloudByRange(res_cloud, xmin=-OBJECT_RANGE, xmax=OBJECT_RANGE, ymin=-OBJECT_RANGE, ymax=OBJECT_RANGE )
-                cl,ind = open3d.statistical_outlier_removal(res_cloud, # Statistical oulier removal
-                        nb_neighbors=20, std_ratio=2.0)
-                res_cloud = open3d.select_down_sample(res_cloud, ind)
+                cl,ind = res_cloud.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
+                res_cloud = res_cloud.select_down_sample(ind)
                 viewer.updateCloud(res_cloud)
             
             # Save resultant point cloud
-            open3d.write_point_cloud(file_folder+file_name_cloud_final, res_cloud)
+            o3d.io.write_point_cloud(file_folder+file_name_cloud_final, res_cloud)
 
+        
         # Update viewer
         viewer.updateView()
 
