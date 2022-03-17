@@ -24,6 +24,9 @@ Main function:
 #include "my_pcl/pcl_io.h"
 #include "scan3d_by_baxter/T4x4.h" // my message
 
+#include <filesystem>
+namespace fs = std::filesystem;
+
 using namespace std;
 using namespace pcl;
 
@@ -95,40 +98,63 @@ void process_to_get_cloud_rotated();
 // void process_to_get_cloud_segmented();
 void print_cloud_processing_result(int cnt_cloud);
 
+int check_number_of_files()
+{
+    string str2 ("src");
+    std::string path = "/home/acrv/new_ws/src/3D-Scanner-by-Baxter/data/data";
+    for (const auto & file : fs::directory_iterator(path))
+        std::cout << file.path() << std::endl;
+        std::cout << file << std::endl;
+        if (file.find(str2) != std::string::npos) {
+            std::cout << "found!" << '\n';
+}
+}
+
 // -- Main Loop:
 void main_loop(ros::Publisher &pub_to_node3, ros::Publisher &pub_to_rviz)
 {
     int cnt_cloud = 0;
+    bool queue_full_flag = false;
     while (ros::ok())
     {
-        if (!buff_cloud_src.empty() && !buff_T_baxter_to_depthcam.empty())
+        
+        // if (!buff_cloud_src.empty() && !buff_T_baxter_to_depthcam.empty())
+        if (buff_cloud_src.size() == 9 && buff_T_baxter_to_depthcam.size() == 9 && !queue_full_flag)
         {
+            queue_full_flag = true;
+            ROS_INFO("\n\n --- Node 2 Started --- \n\n", cnt_cloud);
+        }
+
+        // if (!buff_cloud_src.empty() && !buff_T_baxter_to_depthcam.empty())
+        if (queue_full_flag == true && cnt_cloud < 9)
+        {
+            ROS_INFO("Filtering #%d", cnt_cloud);
             cnt_cloud++;
 
             // Get data from buff
-            T_baxter_to_depthcam = buff_T_baxter_to_depthcam.front();
-            buff_T_baxter_to_depthcam.pop();
-            cloud_src = buff_cloud_src.front();
-            buff_cloud_src.pop();
+            // T_baxter_to_depthcam = buff_T_baxter_to_depthcam.front();
+            // buff_T_baxter_to_depthcam.pop();
+            T_baxter_to_depthcam = read_pcd_from_file
+            // cloud_src = buff_cloud_src.front();
+            // buff_cloud_src.pop();
+            cloud_src = read_pcd_from_file
 
             // Process cloud
             process_to_get_cloud_rotated();
+            // Skip segmentation
             copyPointCloud(*cloud_rotated, *cloud_segmented);
             for (PointXYZRGB &p : cloud_segmented->points)
                 my_basics::preTranslatePoint(T_chess_to_baxter, p.x, p.y, p.z);
-            ROS_INFO("SWAP");
             // process_to_get_cloud_segmented();
 
             // print
             print_cloud_processing_result(cnt_cloud); // Print info
-
 
             // Save to file
             string suffix = my_basics::int2str(cnt_cloud, file_name_index_width) + ".pcd";
 
             string f0 = file_folder + file_name_cloud_src + suffix;
             my_pcl::write_point_cloud(f0, cloud_src);
-
             string f2 = file_folder + file_name_cloud_segmented + suffix;
             my_pcl::write_point_cloud(f2, cloud_segmented);
 
@@ -298,6 +324,57 @@ void print_cloud_processing_result(int cnt_cloud)
 
 // -----------------------------------------------------
 // -----------------------------------------------------
+void read_pcd_from_file(string filename)
+{
+    ifstream fin;
+    fin.open(filename);
+    assert(fin.is_open()); // Fail to find the config file
+    while (fin >> val)
+        T_16x1[cnt++] = val;
+    fin.close();
+    return;
+}
+
+// void read_pose_from_file(int ith_goalpose)
+// {
+//     float pose = [4][4] = {};
+//     int row_count = 0;
+//     std::string line;
+//     filename = "camera_pose.txt";
+//     ifstream fin;
+//     fin.open(filename);
+
+//     if (fin.is_open()) {
+//     while (std::getline(fin, line)) {
+//         if (line.length() > 0) {
+//             if (line.find("pose") != std::string::npos) {
+//                 std::cout << "pose line!" << '\n';
+//             }
+//             else
+//             {
+//                 std::cout << line << std::endl;
+//             }
+//         }
+//     }
+//     fin.close();
+//     }
+//     return
+// }
+
+void read_pose_from_file(float T_16x1[16], string filename)
+{
+    float pose[4][4];
+    ifstream fin;
+    fin.open(filename);
+    float val;
+    int cnt = 0;
+    assert(fin.is_open()); // Fail to find the config file
+    while (fin >> val && cnt < 16)
+        T_16x1[cnt++] = val;
+    fin.close();
+    return;
+}
+
 void read_T_from_file(float T_16x1[16], string filename)
 {
     ifstream fin;

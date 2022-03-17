@@ -97,6 +97,9 @@ class SubscriberOfCloud(object):
     def popCloud(self):
         return self.cloud_buff.popleft()
 
+    def lengthOfBuffer(self):
+        return len(self.cloud_buff)
+
     # def rotateCloudForBetterViewing(self, cloud):
     #     T=rotx(np.pi, matrix_len=4)
     #     cloud.transform(T)
@@ -120,7 +123,7 @@ if __name__ == "__main__":
     radius_merge=rospy.get_param("~radius_merge")  # 0.001
 
     # -- Loop
-    rate = rospy.Rate(100)
+    rate = rospy.Rate(10) #100
     cnt = 0
     cloud_register = CloudRegister(
         voxel_size_regi=0.01, global_regi_ratio=4.0, 
@@ -128,9 +131,16 @@ if __name__ == "__main__":
         USE_GLOBAL_REGI=False, USE_ICP=True, USE_COLORED_ICP=False)
         # USE_GLOBAL_REGI=False, USE_ICP=False, USE_COLORED_ICP=False)
 
-
+    queue_full_flag = False
     while not rospy.is_shutdown():
-        if cnt<num_goalposes and cloud_subscriber.hasNewCloud():
+
+
+        # if cnt<num_goalposes and cloud_subscriber.hasNewCloud() and cloud_subscriber.lengthOfBuffer() == 9:
+        if cloud_subscriber.lengthOfBuffer() == 9:
+            queue_full_flag = True
+            print("\n\n --- Node 3 Started --- \n\n")
+
+        if cnt<num_goalposes and queue_full_flag:
             
             cnt += 1
             rospy.loginfo("=========================================")
@@ -147,7 +157,7 @@ if __name__ == "__main__":
             cl,ind = new_cloud.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
             new_cloud = new_cloud.select_down_sample(ind)
             
-            # Regi
+            # Registration
             res_cloud = cloud_register.addCloud(new_cloud)
             print "Size of the registered cloud: ", getCloudSize(res_cloud)
             
@@ -160,13 +170,16 @@ if __name__ == "__main__":
                 rospy.sleep(1.0)
                 
                 # Filter by range to remove things around our target
-                res_cloud = filtCloudByRange(res_cloud, xmin=-OBJECT_RANGE, xmax=OBJECT_RANGE, ymin=-OBJECT_RANGE, ymax=OBJECT_RANGE )
+                # res_cloud = filtCloudByRange(res_cloud, xmin=-OBJECT_RANGE, xmax=OBJECT_RANGE, ymin=-OBJECT_RANGE, ymax=OBJECT_RANGE )
                 cl,ind = res_cloud.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
                 res_cloud = res_cloud.select_down_sample(ind)
                 viewer.updateCloud(res_cloud)
             
             # Save resultant point cloud
-            o3d.io.write_point_cloud(file_folder+file_name_cloud_final, res_cloud)
+            if getCloudSize(new_cloud)==0:
+                print "The received cloud is empty. Not processing it."
+            else:
+                o3d.io.write_point_cloud(file_folder+file_name_cloud_final, res_cloud)
 
         
         # Update viewer
