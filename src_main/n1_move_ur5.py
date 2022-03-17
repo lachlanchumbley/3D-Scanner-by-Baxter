@@ -139,8 +139,9 @@ def savePoseToFile(pose, ith_goalpose, clear=False):
 
     # Write to file
     fout = open(filename,"a")
-    fout.write("\n" + int2str(ith_goalpose,2)+"th pose: \n")
+    # fout.write("\n" + int2str(ith_goalpose,2)+"th pose: \n")
     write_ndarray_to_file(fout, pose)
+    fout.write("\n")
     
     # Return 
     fout.close()

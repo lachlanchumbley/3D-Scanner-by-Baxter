@@ -115,6 +115,15 @@ void main_loop(ros::Publisher &pub_to_node3, ros::Publisher &pub_to_rviz)
 {
     int cnt_cloud = 0;
     bool queue_full_flag = false;
+    bool use_stored_files = false;
+
+    cout << "Use existing files? (y/n): ";
+    cin >> user_input;
+    if (user_input == "y")
+    {
+        use_stored_files = true;
+    }
+
     while (ros::ok())
     {
         
@@ -124,6 +133,12 @@ void main_loop(ros::Publisher &pub_to_node3, ros::Publisher &pub_to_rviz)
             queue_full_flag = true;
             ROS_INFO("\n\n --- Node 2 Started --- \n\n", cnt_cloud);
         }
+        else if (use_stored_files)
+        {
+            queue_full_flag = true;
+            ROS_INFO("\n\n --- Node 2 Started --- \n\n", cnt_cloud);
+            cnt_cloud = 9
+        }
 
         // if (!buff_cloud_src.empty() && !buff_T_baxter_to_depthcam.empty())
         if (queue_full_flag == true && cnt_cloud < 9)
@@ -131,13 +146,19 @@ void main_loop(ros::Publisher &pub_to_node3, ros::Publisher &pub_to_rviz)
             ROS_INFO("Filtering #%d", cnt_cloud);
             cnt_cloud++;
 
-            // Get data from buff
-            // T_baxter_to_depthcam = buff_T_baxter_to_depthcam.front();
-            // buff_T_baxter_to_depthcam.pop();
-            T_baxter_to_depthcam = read_pcd_from_file
-            // cloud_src = buff_cloud_src.front();
-            // buff_cloud_src.pop();
-            cloud_src = read_pcd_from_file
+            if (use_stored_files)
+            {
+                T_baxter_to_depthcam = read_pose_from_file()
+                cloud_src = read_pcd_from_file()
+            }
+            else
+            {
+                // Get data from buff
+                T_baxter_to_depthcam = buff_T_baxter_to_depthcam.front();
+                buff_T_baxter_to_depthcam.pop();
+                cloud_src = buff_cloud_src.front();
+                buff_cloud_src.pop();
+            }
 
             // Process cloud
             process_to_get_cloud_rotated();
@@ -324,54 +345,33 @@ void print_cloud_processing_result(int cnt_cloud)
 
 // -----------------------------------------------------
 // -----------------------------------------------------
-void read_pcd_from_file(string filename)
+void read_pose_from_file(string filename)
 {
-    ifstream fin;
-    fin.open(filename);
-    assert(fin.is_open()); // Fail to find the config file
-    while (fin >> val)
-        T_16x1[cnt++] = val;
-    fin.close();
+    // Use PCL to read point cloud and return it
+    // https://pcl.readthedocs.io/en/latest/reading_pcd.html
     return;
 }
 
-// void read_pose_from_file(int ith_goalpose)
-// {
-//     float pose = [4][4] = {};
-//     int row_count = 0;
-//     std::string line;
-//     filename = "camera_pose.txt";
-//     ifstream fin;
-//     fin.open(filename);
-
-//     if (fin.is_open()) {
-//     while (std::getline(fin, line)) {
-//         if (line.length() > 0) {
-//             if (line.find("pose") != std::string::npos) {
-//                 std::cout << "pose line!" << '\n';
-//             }
-//             else
-//             {
-//                 std::cout << line << std::endl;
-//             }
-//         }
-//     }
-//     fin.close();
-//     }
-//     return
-// }
-
-void read_pose_from_file(float T_16x1[16], string filename)
+void read_pose_from_file(float pose[4][4], string filename)
 {
     float pose[4][4];
     ifstream fin;
     fin.open(filename);
     float val;
     int cnt = 0;
+    int row_index = 0;
+    int column_index = 0;
     assert(fin.is_open()); // Fail to find the config file
     while (fin >> val && cnt < 16)
-        T_16x1[cnt++] = val;
+        row_index = (int)cnt / 4;
+        column_index = cnt % 4;
+        pose[row_index][column_index] = val;
     fin.close();
+
+    ROS_INFO("Transformation Matrix")
+    for (int i = 3; i >= 0; i++) 
+        for (int j = 3; i >= 0; i++) 
+            cout << pose[i][j]
     return;
 }
 
@@ -398,6 +398,7 @@ void subCallbackFromNode1(const scan3d_by_baxter::T4x4::ConstPtr &pose_message)
     buff_T_baxter_to_depthcam.push(tmp);
     printf("Node 2: subscribe camera pose from node 1.\n");
 }
+
 void subCallbackFromKinect(const sensor_msgs::PointCloud2 &ros_cloud)
 {
     static int cnt=0;
@@ -409,6 +410,7 @@ void subCallbackFromKinect(const sensor_msgs::PointCloud2 &ros_cloud)
     }
     return;
 }
+
 void pubPclCloudToTopic(ros::Publisher &pub, PointCloud<PointXYZRGB>::Ptr pcl_cloud)
 {
     sensor_msgs::PointCloud2 ros_cloud_to_pub;
