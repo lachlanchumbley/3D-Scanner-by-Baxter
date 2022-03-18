@@ -65,6 +65,9 @@ bool flag_do_clustering;
 double cluster_tolerance;
 int min_cluster_size, max_cluster_size;
 
+// Flags
+bool n1_done_flag = false
+
 // ------------------------------------- Vars -------------------------------------
 
 // Data contents
@@ -90,7 +93,7 @@ void initAllROSParams();
 
 void read_T_from_file(float T_16x1[16], string filename);
 void subCallbackFromNode1(const scan3d_by_baxter::T4x4::ConstPtr &pose_message);
-void subCallbackFromKinect(const sensor_msgs::PointCloud2 &ros_cloud);
+// void subCallbackFromKinect(const sensor_msgs::PointCloud2 &ros_cloud);
 void pubPclCloudToTopic(ros::Publisher &pub, PointCloud<PointXYZRGB>::Ptr pcl_cloud);
 
 // -- Main processing functions
@@ -122,66 +125,62 @@ void main_loop(ros::Publisher &pub_to_node3, ros::Publisher &pub_to_rviz)
     if (user_input == "y")
     {
         use_stored_files = true;
+        n1_done_flag = true;
     }
 
     while (ros::ok())
     {
-        
-        // if (!buff_cloud_src.empty() && !buff_T_baxter_to_depthcam.empty())
-        if (buff_cloud_src.size() == 9 && buff_T_baxter_to_depthcam.size() == 9 && !queue_full_flag)
+        if (n1_done_flag)
         {
-            queue_full_flag = true;
-            ROS_INFO("\n\n --- Node 2 Started --- \n\n", cnt_cloud);
-        }
-        else if (use_stored_files)
-        {
-            queue_full_flag = true;
-            ROS_INFO("\n\n --- Node 2 Started --- \n\n", cnt_cloud);
-            cnt_cloud = 9
-        }
+            ROS_INFO("\n\n --- Node 2 Started --- \n\n");
 
-        // if (!buff_cloud_src.empty() && !buff_T_baxter_to_depthcam.empty())
-        if (queue_full_flag == true && cnt_cloud < 9)
-        {
-            ROS_INFO("Filtering #%d", cnt_cloud);
-            cnt_cloud++;
+            load_cloud_cnt = 0
+            processed_cloud_cnt = 0
 
-            if (use_stored_files)
+            while (load_cloud_cnt < 9)
             {
+                ROS_INFO("Loading #%d", load_cloud_cnt);
                 T_baxter_to_depthcam = read_pose_from_file()
+                // Add to buffer
+
                 cloud_src = read_pcd_from_file()
+                // Add to buffer
+
             }
-            else
+
+            while (load_cloud_cnt < 9)
             {
+                ROS_INFO("Processing #%d", load_cloud_cnt);
                 // Get data from buff
                 T_baxter_to_depthcam = buff_T_baxter_to_depthcam.front();
                 buff_T_baxter_to_depthcam.pop();
                 cloud_src = buff_cloud_src.front();
                 buff_cloud_src.pop();
+
+                // Process cloud
+                process_to_get_cloud_rotated();
+                // Skip segmentation
+                copyPointCloud(*cloud_rotated, *cloud_segmented);
+                for (PointXYZRGB &p : cloud_segmented->points)
+                    my_basics::preTranslatePoint(T_chess_to_baxter, p.x, p.y, p.z);
+                // process_to_get_cloud_segmented();
+
+                // print
+                print_cloud_processing_result(cnt_cloud); // Print info
+
+                // Save to file
+                string suffix = my_basics::int2str(cnt_cloud, file_name_index_width) + ".pcd";
+
+                string f0 = file_folder + "filtered_" + suffix;
+                my_pcl::write_point_cloud(f0, cloud_src);
             }
 
-            // Process cloud
-            process_to_get_cloud_rotated();
-            // Skip segmentation
-            copyPointCloud(*cloud_rotated, *cloud_segmented);
-            for (PointXYZRGB &p : cloud_segmented->points)
-                my_basics::preTranslatePoint(T_chess_to_baxter, p.x, p.y, p.z);
-            // process_to_get_cloud_segmented();
-
-            // print
-            print_cloud_processing_result(cnt_cloud); // Print info
-
-            // Save to file
-            string suffix = my_basics::int2str(cnt_cloud, file_name_index_width) + ".pcd";
-
-            string f0 = file_folder + file_name_cloud_src + suffix;
-            my_pcl::write_point_cloud(f0, cloud_src);
-            string f2 = file_folder + file_name_cloud_segmented + suffix;
-            my_pcl::write_point_cloud(f2, cloud_segmented);
+            // string f2 = file_folder + file_name_cloud_segmented + suffix;
+            // my_pcl::write_point_cloud(f2, cloud_segmented);
 
             // Publish
-            pubPclCloudToTopic(pub_to_rviz, cloud_rotated);
-            pubPclCloudToTopic(pub_to_node3, cloud_segmented);
+            // pubPclCloudToTopic(pub_to_rviz, cloud_rotated);
+            // pubPclCloudToTopic(pub_to_node3, cloud_segmented);
 
         }
         ros::spinOnce(); // In python, sub is running in different thread. In C++, same thread. So need this.
@@ -203,9 +202,14 @@ int main(int argc, char **argv)
     ros::Subscriber sub_from_kinect = nh.subscribe(topic_name_rgbd_cloud, 10, subCallbackFromKinect);
     ros::Publisher pub_to_node3 = nh.advertise<sensor_msgs::PointCloud2>(topic_n2_to_n3, 10);
     ros::Publisher pub_to_rviz = nh.advertise<sensor_msgs::PointCloud2>(topic_n2_to_rviz, 10);
+    ros::Publisher n2_finish_pub = nh.advertise<std_msgs::Int64>("n2_finished", 10);
+
+    n2_finish_pub.publish(0);
 
     // -- Loop, subscribe ros_cloud, and view
     main_loop(pub_to_node3, pub_to_rviz);
+
+    n2_finish_pub.publish();
 
     // Return
     ROS_INFO("Node2 stops");
@@ -399,17 +403,35 @@ void subCallbackFromNode1(const scan3d_by_baxter::T4x4::ConstPtr &pose_message)
     printf("Node 2: subscribe camera pose from node 1.\n");
 }
 
-void subCallbackFromKinect(const sensor_msgs::PointCloud2 &ros_cloud)
+void subCallbackFromNode1Finished(const Int64 data)
 {
-    static int cnt=0;
-    if(buff_T_baxter_to_depthcam.size()>buff_cloud_src.size()){
-        PointCloud<PointXYZRGB>::Ptr tmp(new PointCloud<PointXYZRGB>);
-        fromROSMsg(ros_cloud, *tmp);
-        buff_cloud_src.push(tmp);
-        printf("Node 2 has subscribed the %dth cloud with size %d\n ", ++cnt, (int)tmp->points.size());
+    if (data == 1){
+        n1_done_flag = true
     }
-    return;
 }
+
+void subCallbackFromNode1(const scan3d_by_baxter::T4x4::ConstPtr &pose_message)
+{
+    const vector<float> &trans_mat_16x1 = pose_message->TransformationMatrix;
+    vector<vector<float>> tmp(4, vector<float>(4,0));
+    for (int cnt = 0, i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            tmp[i][j] = trans_mat_16x1[cnt++];
+    buff_T_baxter_to_depthcam.push(tmp);
+    printf("Node 2: subscribe camera pose from node 1.\n");
+}
+
+// void subCallbackFromKinect(const sensor_msgs::PointCloud2 &ros_cloud)
+// {
+//     static int cnt=0;
+//     if(buff_T_baxter_to_depthcam.size()>buff_cloud_src.size()){
+//         PointCloud<PointXYZRGB>::Ptr tmp(new PointCloud<PointXYZRGB>);
+//         fromROSMsg(ros_cloud, *tmp);
+//         buff_cloud_src.push(tmp);
+//         printf("Node 2 has subscribed the %dth cloud with size %d\n ", ++cnt, (int)tmp->points.size());
+//     }
+//     return;
+// }
 
 void pubPclCloudToTopic(ros::Publisher &pub, PointCloud<PointXYZRGB>::Ptr pcl_cloud)
 {

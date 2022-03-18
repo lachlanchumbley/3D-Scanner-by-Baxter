@@ -22,6 +22,7 @@ from lib_geo_trans import rotx, roty, rotz
 VIEW_RES_BY_OPEN3D=True # This is difficult to set orientation. And has some bug.
 VIEW_RES_BY_RVIZ=~VIEW_RES_BY_OPEN3D
 OBJECT_RANGE = 0.12 #The object is inside a region of x=(-r,r) && y=(-r,r)
+n2_done_flag = False
 
 # ---------------------------- Two viewers (choose one) ----------------------------
 class Open3DViewer(object):
@@ -104,6 +105,10 @@ class SubscriberOfCloud(object):
     #     T=rotx(np.pi, matrix_len=4)
     #     cloud.transform(T)
 
+def subCallbackFromNode2(data):
+    n2_done_flag = True
+    return
+
 # ---------------------------- Main ----------------------------
 if __name__ == "__main__":
     rospy.init_node("node3")
@@ -115,7 +120,8 @@ if __name__ == "__main__":
     file_name_cloud_segmented = rospy.get_param("file_name_cloud_segmented")
 
     # -- Subscribe to cloud + Visualize it
-    cloud_subscriber = SubscriberOfCloud() # set subscriber
+    # cloud_subscriber = SubscriberOfCloud() # set subscriber
+    cloud_subscriber = rospy.Subscriber("n2_done", int, subCallbackFromNode2)
     viewer = chooseViewer() # set viewer
 
     # -- Parameters
@@ -134,50 +140,48 @@ if __name__ == "__main__":
     queue_full_flag = False
     while not rospy.is_shutdown():
 
-
-        # if cnt<num_goalposes and cloud_subscriber.hasNewCloud() and cloud_subscriber.lengthOfBuffer() == 9:
-        if cloud_subscriber.lengthOfBuffer() == 9:
-            queue_full_flag = True
+        if n2_done_flag:
             print("\n\n --- Node 3 Started --- \n\n")
+            
+            while cnt < num_goalposes:
+                cnt += 1
+                rospy.loginfo("=========================================")
+                rospy.loginfo("Node 3: Received the {}th segmented cloud.".format(cnt))
 
-        if cnt<num_goalposes and queue_full_flag:
-            
-            cnt += 1
-            rospy.loginfo("=========================================")
-            rospy.loginfo("Node 3: Received the {}th segmented cloud.".format(cnt))
+                # Register Point Cloud
+                # new_cloud = cloud_subscriber.popCloud()
 
+                filename = "filtered_" + str(cnt) + ".pcd"
+                new_cloud = o3d.io.read_point_cloud(file_folder + filename)
 
-            # Register Point Cloud
-            new_cloud = cloud_subscriber.popCloud()
-            if getCloudSize(new_cloud)==0:
-                print "  The received cloud is empty. Not processing it."
-                continue
-            
-            # Filter
-            cl,ind = new_cloud.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
-            new_cloud = new_cloud.select_down_sample(ind)
-            
-            # Registration
-            res_cloud = cloud_register.addCloud(new_cloud)
-            print "Size of the registered cloud: ", getCloudSize(res_cloud)
-            
-            # Update and save to file
-            viewer.updateCloud(res_cloud)
-            
-            if cnt==num_goalposes:
-                rospy.loginfo("=========== Cloud Registration Completes ===========")
-                rospy.loginfo("====================================================")
-                rospy.sleep(1.0)
+                if getCloudSize(new_cloud)==0:
+                    print("  The received cloud is empty. Not processing it.")
+                    continue
                 
-                # Filter by range to remove things around our target
-                # res_cloud = filtCloudByRange(res_cloud, xmin=-OBJECT_RANGE, xmax=OBJECT_RANGE, ymin=-OBJECT_RANGE, ymax=OBJECT_RANGE )
-                cl,ind = res_cloud.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
-                res_cloud = res_cloud.select_down_sample(ind)
+                # Filter
+                cl,ind = new_cloud.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
+                new_cloud = new_cloud.select_down_sample(ind)
+                
+                # Registration
+                res_cloud = cloud_register.addCloud(new_cloud)
+                print("Size of the registered cloud: ", getCloudSize(res_cloud))
+                
+                # Update and save to file
                 viewer.updateCloud(res_cloud)
+            
+            rospy.loginfo("=========== Cloud Registration Completes ===========")
+            rospy.loginfo("====================================================")
+            rospy.sleep(1.0)
+            
+            # Filter by range to remove things around our target
+            # res_cloud = filtCloudByRange(res_cloud, xmin=-OBJECT_RANGE, xmax=OBJECT_RANGE, ymin=-OBJECT_RANGE, ymax=OBJECT_RANGE )
+            cl,ind = res_cloud.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
+            res_cloud = res_cloud.select_down_sample(ind)
+            viewer.updateCloud(res_cloud)
             
             # Save resultant point cloud
             if getCloudSize(new_cloud)==0:
-                print "The received cloud is empty. Not processing it."
+                print("The received cloud is empty. Not processing it.")
             else:
                 o3d.io.write_point_cloud(file_folder+file_name_cloud_final, res_cloud)
 

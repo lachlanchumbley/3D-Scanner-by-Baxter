@@ -42,7 +42,7 @@ from enum import Enum
 # -*- coding: utf-8 -*-
 
 # -- Standard
-import open3d
+import open3d as o3d
 import numpy as np
 import sys, os, cv2
 from copy import copy
@@ -61,6 +61,7 @@ from lib_cloud_conversion_between_Open3D_and_ROS import convertCloudFromOpen3dTo
 # -- Message types
 # from std_msgs.msg import Int32  # used for indexing the ith robot pose
 from geometry_msgs.msg import Pose, Point, Quaternion
+from sensor_msgs.msg import PointCloud2
 from scan3d_by_baxter.msg import T4x4
 
 
@@ -118,6 +119,10 @@ def set_target_joint_angles():
 
     return target_joint_angles
 
+def realsense_callback(data):
+    point_cloud = data
+    return
+
 
 # -- Functions: Write results to file
 
@@ -146,6 +151,14 @@ def savePoseToFile(pose, ith_goalpose, clear=False):
     # Return 
     fout.close()
     g_poses_storage.append(pose)
+    return
+
+# Write point cloud to file
+def savePointCloudToFile(point_cloud, ith_goalpose):
+    filename = "src_" + str(ith_goalpose) + ".pcd"
+
+    # Write to file
+    o3d.io.write_point_cloud(filename, point_cloud)
     return
 
 # --
@@ -263,6 +276,7 @@ if __name__ == "__main__":
     file_folder = rospy.get_param("file_folder")
     file_name_pose = rospy.get_param("file_name_pose")
     file_name_index_width = rospy.get_param("file_name_index_width")
+    topic_name_rgbd_cloud = rospy.get_param("topic_name_rgbd_cloud")
 
     config_folder = rospy.get_param("file_folder_config")
     file_name_T_arm_to_depth = rospy.get_param("file_name_T_arm_to_depth")
@@ -282,6 +296,14 @@ if __name__ == "__main__":
     # -- Set publisher: After Baxter moves to the next goalpose position,
     #   sends the pose to node2 to tell it to take the picture.
     pub = JointPosPublisher(topic_endeffector_pos)
+
+    # Sub to Realsense
+    point_cloud = PointCloud2()
+    rospy.Subscriber(topic_name_rgbd_cloud, PointCloud2, realsense_callback)
+
+    # Finished publisher
+    n1_finish_pub = rospy.Publisher("n1_finished", int, queue_size=1)
+    n1_finish_pub.publish(0)
 
     # ---------------------------------------------------------------------
 
@@ -332,12 +354,18 @@ if __name__ == "__main__":
         # Publish camera pose to node2
         pose = readRealsenseCameraPose()
         pub.publishPose(pose)
+
+        # Publish camera pose to node2
+        savePointCloudToFile(point_cloud, ith_goalpose)
         
         # End
         savePoseToFile(pose, ith_goalpose)
         rospy.loginfo("--------------------------------")
         rospy.sleep(1)
         # if ith_goalpose==num_goalposes: ith_goalpose = 0
+
+    rospy.loginfo("Node 1 Finished")
+    n1_finish_pub.publish(1)
 
     # -- Node stops
     rospy.loginfo("!!!!! Node 1 stops.")
