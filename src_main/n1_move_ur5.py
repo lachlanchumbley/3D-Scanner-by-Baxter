@@ -27,8 +27,10 @@ import moveit_msgs.msg
 from moveit_msgs.msg import DisplayTrajectory, MoveGroupActionFeedback, RobotState, RobotTrajectory, CollisionObject
 from sensor_msgs.msg import JointState
 from actionlib_msgs.msg import GoalStatusArray
+
 from robotiq_2f_gripper_control.msg import _Robotiq2FGripper_robot_output as outputMsg, \
     _Robotiq2FGripper_robot_input as inputMsg
+
 from util import dist_to_guess, vector3ToNumpy, find_center, dist_two_points, smallestSignedAngleBetween, \
     calculate_approach, generate_push_pose, find_nearest_corner, floatToMsg, command_gripper, get_robot_state, \
     lift_up_plan, move_back_plan, add_front_wall, add_right_wall, add_left_wall, add_back_wall, add_roof
@@ -38,6 +40,7 @@ from pyquaternion import Quaternion
 import pdb
 from enum import Enum
 
+import ros_numpy
 
 # -*- coding: utf-8 -*-
 
@@ -61,9 +64,9 @@ from lib_cloud_conversion_between_Open3D_and_ROS import convertCloudFromOpen3dTo
 # -- Message types
 # from std_msgs.msg import Int32  # used for indexing the ith robot pose
 from geometry_msgs.msg import Pose, Point, Quaternion
+from sensor_msgs import point_cloud2
 from sensor_msgs.msg import PointCloud2
 from scan3d_by_baxter.msg import T4x4
-
 
 # ------------------------------------------------------------
 
@@ -119,10 +122,17 @@ def set_target_joint_angles():
 
     return target_joint_angles
 
-def realsense_callback(data):
-    point_cloud = data
+def realsense_callback(pc2_msg):
+    xyz_array = ros_numpy.point_cloud2.pointcloud2_to_xyz_array(pc2_msg)
+    # Pass xyz to Open3D.o3d.geometry.PointCloud and visualize
+    # print(xyz_array)
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(xyz_array)
+    # print(pcd)
+    global current_point_cloud
+    current_point_cloud = pcd
+    # print(current_point_cloud)
     return
-
 
 # -- Functions: Write results to file
 
@@ -154,11 +164,11 @@ def savePoseToFile(pose, ith_goalpose, clear=False):
     return
 
 # Write point cloud to file
-def savePointCloudToFile(point_cloud, ith_goalpose):
-    filename = "src_" + str(ith_goalpose) + ".pcd"
+def savePointCloudToFile(cloud, ith_goalpose):
+    filename = "/home/acrv/new_ws/src/3D-Scanner-by-Baxter/data/data/" + "src_" + str(ith_goalpose) + ".pcd"
 
     # Write to file
-    o3d.io.write_point_cloud(filename, point_cloud)
+    o3d.io.write_point_cloud(filename, cloud)
     return
 
 # --
@@ -298,12 +308,12 @@ if __name__ == "__main__":
     pub = JointPosPublisher(topic_endeffector_pos)
 
     # Sub to Realsense
-    point_cloud = PointCloud2()
+    
     rospy.Subscriber(topic_name_rgbd_cloud, PointCloud2, realsense_callback)
 
     # Finished publisher
-    n1_finish_pub = rospy.Publisher("n1_finished", int, queue_size=1)
-    n1_finish_pub.publish(0)
+    # n1_finish_pub = rospy.Publisher("n1_finished", int, queue_size=1)
+    # n1_finish_pub.publish(0)
 
     # ---------------------------------------------------------------------
 
@@ -355,8 +365,10 @@ if __name__ == "__main__":
         pose = readRealsenseCameraPose()
         pub.publishPose(pose)
 
+        print(current_point_cloud)
+
         # Publish camera pose to node2
-        savePointCloudToFile(point_cloud, ith_goalpose)
+        savePointCloudToFile(current_point_cloud, ith_goalpose)
         
         # End
         savePoseToFile(pose, ith_goalpose)
@@ -365,7 +377,7 @@ if __name__ == "__main__":
         # if ith_goalpose==num_goalposes: ith_goalpose = 0
 
     rospy.loginfo("Node 1 Finished")
-    n1_finish_pub.publish(1)
+    # n1_finish_pub.publish(1)
 
     # -- Node stops
     rospy.loginfo("!!!!! Node 1 stops.")

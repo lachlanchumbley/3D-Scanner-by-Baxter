@@ -1,0 +1,135 @@
+<launch>
+
+    <!-- This launches the 3 main nodes for "Baxter 3D Object Scanner"-->
+
+
+   <!--=============================== Parameters ======================================== -->
+
+    <!-- Number of poses the Baxter will move to for taking picture -->
+    <param name="num_goalposes" type="int" value="9" /> 
+
+    <!-- The topic for receiving PointCloud2 from RgbdCam -->
+    <param name="topic_name_rgbd_cloud" value="/realsense/cloud" /> 
+
+    <!-- File names for saving results -->
+    <param name="file_folder" value="$(find scan3d_by_baxter)/data/data/" /> 
+    <param name="file_name_cloud_src" value="src_" /> 
+    <param name="file_name_cloud_segmented" value="segmented_" /> 
+    <param name="file_name_cloud_final" value="final.pcd" /> 
+    <param name="file_name_pose" value="camera_pose" /> 
+    <param name="file_name_index_width" value="2" />   <!-- e.g.: width=2: pose_01, pose_02 -->
+
+    <!-- File names for storing T_baxter_to_chess and T_arm_to_depth-->
+    <param name="file_folder_config" value="$(find scan3d_by_baxter)/config/" /> 
+    <param name="file_name_T_baxter_to_chess" value="T_baxter_to_chess.txt"  />
+    <param name="file_name_T_arm_to_depth" value="T_arm_to_depth.txt"  />
+
+    <!-- My topics -->
+    <param name="topic_n1_to_n2" value="my/robot_end_effector_pose" /> 
+    <param name="topic_n2_to_rviz" value="my/cloud_rotated" /> 
+    <param name="topic_n2_to_n3" value="my/cloud_segmented" /> 
+    <param name="topic_n3_to_rviz" value="my/cloud_final" /> 
+
+
+   <!--=============================== Nodes: setup ============================================== -->
+   
+    <!-- enable robot -->
+    <!-- <node name="enable_robot" pkg="baxter_tools" type="enable_robot.py" output="screen" args="-e"/> -->
+
+ 
+   <!--=============================== Debug Settings ======================================== -->
+
+    <arg name="run_real_node1"  default="true" doc="DEBUG: whether run node 1"/>
+    <arg name="run_node2"  default="true" doc="DEBUG: whether run node 2"/>
+    <arg name="run_node3"  default="true" doc="DEBUG: whether run node 3"/>
+
+   <!--=============================== Run setup nodes =========================================== -->
+    <group if="$(arg run_real_node1)">
+
+       <!-- trajectory action server -->
+        <!-- <node name="joint_trajectory_action_server" pkg="baxter_interface"
+            type="joint_trajectory_action_server.py" args="-m position"
+        /> -->
+
+    <!-- <include file="$(find camera_driver)/launch/realsense_driver.launch">
+        <arg name="calibration" value="black"/>
+    </include>
+    
+    <include file="$(find ur_robot_driver)/launch/ur5_bringup.launch">
+        <arg name="robot_ip" value="10.0.0.2"/>
+    </include>
+
+    <include file="$(find ur5_moveit_config)/launch/ur5_moveit_planning_execution.launch">
+        <arg name="isSoftGripper" value="false"/>
+    </include> -->
+    
+    </group>
+
+   <!--=============================== Nodes: Main 3 =========================================== -->
+
+   <!-- node 1: main node for controlling work flow -->
+    <!-- <node if="$(arg run_real_node1)" 
+        name="node1" type="n1_move_ur5.py"  pkg="scan3d_by_baxter" output = "screen">
+    </node>
+
+    <node unless="$(arg run_real_node1)" 
+        name="n1_fake_data_publisher" pkg="scan3d_by_baxter" type="n1_fake_data_publisher.py" output = "screen">
+    </node> -->
+
+
+
+   <!-- node 2: read cloud from kinect, filter, remove plane, do clustering, pub -->
+    <!-- <node if="$(arg run_node2)" 
+        name="node2"
+        type="n2_filt_and_seg_object" 
+        pkg="scan3d_by_baxter" output = "screen">   -->
+
+            <!-- filtering -->
+            <!-- <param name="x_grid_size" type="double" value="0.002" />     
+            <param name="y_grid_size" type="double" value="0.002" />     
+            <param name="z_grid_size" type="double" value="0.002" />    -->
+
+            <!-- filtering by range. Centered at the chessboard -->
+            <!-- <param name="flag_do_range_filt" type="bool" value="true" />     
+            <param name="z_range_low" type="double" value="-0.05" />     
+            <param name="z_range_up" type="double" value="0.35" />     
+            <param name="x_range_radius" type="double" value="0.25" />     
+            <param name="y_range_radius" type="double" value="0.25" /> -->
+
+            <!-- segment plane -->
+            <!-- <param name="num_planes" type="int" value="1" />     
+            <param name="plane_distance_threshold_0" type="double" value="0.05" />     
+            <param name="plane_distance_threshold" type="double" value="0.02" />     
+            <param name="plane_max_iterations" type="int" value="100" />      -->
+
+            <!-- divide cloud into clusters -->
+            <!-- <param name="flag_do_clustering" type="bool" value="false" />     
+            <param name="cluster_tolerance" type="double" value="0.02" />     
+            <param name="min_cluster_size" type="int" value="1000" />     
+            <param name="max_cluster_size" type="int" value="10000" />    
+    </node> -->
+
+   <!-- node 3: register clouds -->
+    <node if="$(arg run_node3)" name="node3" type="n3_v2.py"  pkg="scan3d_by_baxter" output = "screen">
+        <param name="radius_registration" type="double" value="0.005" />     
+        <param name="radius_merge" type="double" value="0.002" />   
+    </node>
+
+   <!--================================== rviz ============================================== -->
+
+    <!-- <node type="rviz" name="rviz1" pkg="rviz"
+       args="-d $(find scan3d_by_baxter)/config/rviz_baxter_and_clouds.rviz" respawn="true"/> 
+
+    <node type="rviz" name="rviz2" pkg="rviz"
+       args="-d $(find scan3d_by_baxter)/config/rviz_segmented_cloud.rviz" respawn="true"/> 
+
+    <node type="rviz" name="rviz3" pkg="rviz"
+       args="-d $(find scan3d_by_baxter)/config/rviz_final_cloud.rviz" respawn="true"/>
+       
+    <node type="rviz" name="rviz_depth_image" pkg="rviz"
+       args="-d $(find scan3d_by_baxter)/config/rviz_depth_image.rviz" respawn="true"/>  -->
+
+    <node type="rviz" name="grasp_scene" pkg="rviz"
+       args="-d $(find scan3d_by_baxter)/config/grasp_scene.rviz" respawn="true"/>
+   
+</launch>

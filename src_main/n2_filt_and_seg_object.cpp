@@ -24,8 +24,8 @@ Main function:
 #include "my_pcl/pcl_io.h"
 #include "scan3d_by_baxter/T4x4.h" // my message
 
-#include <filesystem>
-namespace fs = std::filesystem;
+// #include <filesystem>
+// namespace fs = std::filesystem;
 
 using namespace std;
 using namespace pcl;
@@ -66,7 +66,7 @@ double cluster_tolerance;
 int min_cluster_size, max_cluster_size;
 
 // Flags
-bool n1_done_flag = false
+bool n1_done_flag = false;
 
 // ------------------------------------- Vars -------------------------------------
 
@@ -92,6 +92,8 @@ void initAllROSParams();
 // -- Input/Output and Sub/Publisher
 
 void read_T_from_file(float T_16x1[16], string filename);
+// std::vector<std::vector<float> > read_pose_from_file(string filename);
+PointCloud<PointXYZRGB>::Ptr read_pcd_from_file(string filename);
 void subCallbackFromNode1(const scan3d_by_baxter::T4x4::ConstPtr &pose_message);
 // void subCallbackFromKinect(const sensor_msgs::PointCloud2 &ros_cloud);
 void pubPclCloudToTopic(ros::Publisher &pub, PointCloud<PointXYZRGB>::Ptr pcl_cloud);
@@ -101,24 +103,27 @@ void process_to_get_cloud_rotated();
 // void process_to_get_cloud_segmented();
 void print_cloud_processing_result(int cnt_cloud);
 
-int check_number_of_files()
-{
-    string str2 ("src");
-    std::string path = "/home/acrv/new_ws/src/3D-Scanner-by-Baxter/data/data";
-    for (const auto & file : fs::directory_iterator(path))
-        std::cout << file.path() << std::endl;
-        std::cout << file << std::endl;
-        if (file.find(str2) != std::string::npos) {
-            std::cout << "found!" << '\n';
-}
-}
+// int check_number_of_files()
+// {
+//     string str2 ("src");
+//     std::string path = "/home/acrv/new_ws/src/3D-Scanner-by-Baxter/data/data";
+//     for (const auto & file : fs::directory_iterator(path))
+//         std::cout << file.path() << std::endl;
+//         std::cout << file << std::endl;
+//         if (file.find(str2) != std::string::npos) {
+//             std::cout << "found!" << '\n';
+// }
+// }
 
 // -- Main Loop:
 void main_loop(ros::Publisher &pub_to_node3, ros::Publisher &pub_to_rviz)
 {
     int cnt_cloud = 0;
+    int load_cloud_cnt = 0;
+    int processed_cloud_cnt = 0;
     bool queue_full_flag = false;
     bool use_stored_files = false;
+    string user_input = "";
 
     cout << "Use existing files? (y/n): ";
     cin >> user_input;
@@ -134,16 +139,20 @@ void main_loop(ros::Publisher &pub_to_node3, ros::Publisher &pub_to_rviz)
         {
             ROS_INFO("\n\n --- Node 2 Started --- \n\n");
 
-            load_cloud_cnt = 0
-            processed_cloud_cnt = 0
+            load_cloud_cnt = 0;
+            processed_cloud_cnt = 0;
+            string pose_filename = "";
+            string pcd_filename = "";
 
             while (load_cloud_cnt < 9)
             {
                 ROS_INFO("Loading #%d", load_cloud_cnt);
-                T_baxter_to_depthcam = read_pose_from_file()
+                pose_filename = "test.txt";
+                // T_baxter_to_depthcam = read_pose_from_file(pose_filename);   NEED TO FIX
                 // Add to buffer
 
-                cloud_src = read_pcd_from_file()
+                pcd_filename = "test.txt";
+                cloud_src = read_pcd_from_file(pcd_filename);
                 // Add to buffer
 
             }
@@ -199,17 +208,17 @@ int main(int argc, char **argv)
 
     // Subscriber and Publisher
     ros::Subscriber sub_from_node1 = nh.subscribe(topic_n1_to_n2, 10, subCallbackFromNode1); // 10 is queue size
-    ros::Subscriber sub_from_kinect = nh.subscribe(topic_name_rgbd_cloud, 10, subCallbackFromKinect);
+    // ros::Subscriber sub_from_kinect = nh.subscribe(topic_name_rgbd_cloud, 10, subCallbackFromKinect);
     ros::Publisher pub_to_node3 = nh.advertise<sensor_msgs::PointCloud2>(topic_n2_to_n3, 10);
     ros::Publisher pub_to_rviz = nh.advertise<sensor_msgs::PointCloud2>(topic_n2_to_rviz, 10);
-    ros::Publisher n2_finish_pub = nh.advertise<std_msgs::Int64>("n2_finished", 10);
+    // ros::Publisher n2_finish_pub = nh.advertise<int64>("n2_finished", 10);
 
-    n2_finish_pub.publish(0);
+    // n2_finish_pub.publish(0);
 
     // -- Loop, subscribe ros_cloud, and view
     main_loop(pub_to_node3, pub_to_rviz);
 
-    n2_finish_pub.publish();
+    // n2_finish_pub.publish(1);
 
     // Return
     ROS_INFO("Node2 stops");
@@ -349,35 +358,36 @@ void print_cloud_processing_result(int cnt_cloud)
 
 // -----------------------------------------------------
 // -----------------------------------------------------
-void read_pose_from_file(string filename)
+PointCloud<PointXYZRGB>::Ptr read_pcd_from_file(string filename)
 {
+    PointCloud<PointXYZRGB>::Ptr pcd(new PointCloud<PointXYZRGB>);
     // Use PCL to read point cloud and return it
     // https://pcl.readthedocs.io/en/latest/reading_pcd.html
-    return;
+    return pcd;
 }
 
-void read_pose_from_file(float pose[4][4], string filename)
-{
-    float pose[4][4];
-    ifstream fin;
-    fin.open(filename);
-    float val;
-    int cnt = 0;
-    int row_index = 0;
-    int column_index = 0;
-    assert(fin.is_open()); // Fail to find the config file
-    while (fin >> val && cnt < 16)
-        row_index = (int)cnt / 4;
-        column_index = cnt % 4;
-        pose[row_index][column_index] = val;
-    fin.close();
+// std::vector<std::vector<float> > read_pose_from_file(string filename)
+// {
+//     float pose[4][4];
+//     ifstream fin;
+//     fin.open(filename);
+//     float val;
+//     int cnt = 0;
+//     int row_index = 0;
+//     int column_index = 0;
+//     assert(fin.is_open()); // Fail to find the config file
+//     while (fin >> val && cnt < 16)
+//         row_index = (int)cnt / 4;
+//         column_index = cnt % 4;
+//         pose[row_index][column_index] = val;
+//     fin.close();
 
-    ROS_INFO("Transformation Matrix")
-    for (int i = 3; i >= 0; i++) 
-        for (int j = 3; i >= 0; i++) 
-            cout << pose[i][j]
-    return;
-}
+//     ROS_INFO("Transformation Matrix");
+//     for (int i = 3; i >= 0; i++) 
+//         for (int j = 3; i >= 0; i++) 
+//             cout << pose[i][j];
+//     return pose;
+// }
 
 void read_T_from_file(float T_16x1[16], string filename)
 {
@@ -392,21 +402,10 @@ void read_T_from_file(float T_16x1[16], string filename)
     return;
 }
 
-void subCallbackFromNode1(const scan3d_by_baxter::T4x4::ConstPtr &pose_message)
-{
-    const vector<float> &trans_mat_16x1 = pose_message->TransformationMatrix;
-    vector<vector<float>> tmp(4, vector<float>(4,0));
-    for (int cnt = 0, i = 0; i < 4; i++)
-        for (int j = 0; j < 4; j++)
-            tmp[i][j] = trans_mat_16x1[cnt++];
-    buff_T_baxter_to_depthcam.push(tmp);
-    printf("Node 2: subscribe camera pose from node 1.\n");
-}
-
-void subCallbackFromNode1Finished(const Int64 data)
+void subCallbackFromNode1Finished(const int64 data)
 {
     if (data == 1){
-        n1_done_flag = true
+        n1_done_flag = true;
     }
 }
 
