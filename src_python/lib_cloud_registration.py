@@ -211,13 +211,15 @@ def registerClouds_Local(src, target, voxel_size=0.01, current_T=None,
         target_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=voxel_size * 2, max_nn=30))
         
         if ICP_OPTION == "PointToPlane": # or "PointToPoint"
-            result_trans = o3d.registration.registration_icp(src_down, target_down, ICP_distance_threshold,
-                current_T, 
-                TransformationEstimationPointToPlane())
+            result_trans = o3d.registration.registration_icp(
+                src_down, target_down, ICP_distance_threshold, current_T, 
+                TransformationEstimationPointToPlane(),
+                o3d.registration.ICPConvergenceCriteria(max_iteration=2000))
         else:
-            result_trans = o3d.registration.registration_icp(src_down, target_down, ICP_distance_threshold, 
-                current_T,
-                o3d.registration.TransformationEstimationPointToPoint())
+            result_trans = o3d.registration.registration_icp(
+                src_down, target_down, ICP_distance_threshold, current_T,
+                o3d.registration.TransformationEstimationPointToPoint(),
+                o3d.registration.ICPConvergenceCriteria(max_iteration=2000))
             
         current_T = result_trans.transformation
         if DRAW_ICP:
@@ -245,10 +247,10 @@ def registerClouds_Local(src, target, voxel_size=0.01, current_T=None,
             target_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30))
     
             # Applying colored point cloud registration
-            result_trans = o3d.registration.registration_colored_icp(src_down, target_down,
-                  radius, current_T,
-                  ICPConvergenceCriteria(relative_fitness=1e-5,
-                 relative_rmse=1e-5, max_iteration=max_iter))
+            result_trans = o3d.registration.registration_colored_icp(
+                src_down, target_down,radius, current_T,
+                o3d.registration.ICPConvergenceCriteria(relative_fitness=1e-5,
+                relative_rmse=1e-5, max_iteration=max_iter))
             
             current_T = result_trans.transformation
         print "Complete!"

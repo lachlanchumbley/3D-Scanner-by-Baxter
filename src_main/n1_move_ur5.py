@@ -42,6 +42,8 @@ from enum import Enum
 
 import ros_numpy
 
+from open3d_ros_helper import open3d_ros_helper as orh
+
 # -*- coding: utf-8 -*-
 
 # -- Standard
@@ -123,15 +125,9 @@ def set_target_joint_angles():
     return target_joint_angles
 
 def realsense_callback(pc2_msg):
-    xyz_array = ros_numpy.point_cloud2.pointcloud2_to_xyz_array(pc2_msg)
-    # Pass xyz to Open3D.o3d.geometry.PointCloud and visualize
-    # print(xyz_array)
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(xyz_array)
-    # print(pcd)
+    o3dpc = orh.rospc_to_o3dpc(pc2_msg.data) 
     global current_point_cloud
-    current_point_cloud = pcd
-    # print(current_point_cloud)
+    current_point_cloud = o3dpc
     return
 
 # -- Functions: Write results to file
